@@ -1,8 +1,9 @@
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/epoll.h>
 #include <time.h>
 #include <unistd.h>
@@ -18,18 +19,20 @@
 static void handle_connection(int cli_sock);
 static void
 handle_event(int epollfd, struct epoll_event *events, int num, int cli_sock, char *buf);
-static void readata(int epollfd, int fd, int cli_sock, char *buf);
-static void writedata(int epollfd, int fd, int cli_sock, char *buf);
+static void sendata(int epollfd, int fd, int cli_sock, char *buf);
+static void recdata(int epollfd, int fd, int cli_sock, char *buf);
+//static void readata(int epollfd, int fd, int cli_sock, char *buf);
+//static void writedata(int epollfd, int fd, int cli_sock, char *buf);
 static void add_event(int epollfd, int fd, int state);
 static void delete_event(int epollfd, int fd, int state);
 static void modify_event(int epollfd, int fd, int state);
 
 int main(){
-    int cli_sock = socket(AF_INET, SOCK_STREAM, 0);   
-      if(cli_sock < 0){  
-          perror("socket error");  
-          return 1;  
-      }      
+    int cli_sock = socket(AF_INET, SOCK_STREAM, 0);
+      if(cli_sock < 0){
+          perror("socket error");
+          return 1;
+      }
     struct sockaddr_in  seraddr;
     bzero(&seraddr, sizeof(seraddr));
     seraddr.sin_family = AF_INET;
@@ -73,12 +76,12 @@ handle_event(int epollfd, struct epoll_event *events, int num, int cli_sock, cha
 }
 
 static void sendata(int epollfd, int fd, int cli_sock, char *buf){
-    char sendline[1024];
-    printf("send msg \n");  
-    fgets(sendline, 1024, stdin);  
-    if(send(cli_sock, sendline, strlen(sendline), 0) < 0){  
-        printf("send error: %s(errno: %d)\n", strerror(errno), errno);  
-        exit(0);  
+    //char sendline[1024];
+    printf("send msg \n");
+    fgets(buf, 1024, stdin);
+    if(send(fd, buf, strlen(buf), 0) < 0){
+        printf("send error: %s(errno: %d)\n", strerror(errno), errno);
+        exit(0);
     }else{
         if (fd == STDIN_FILENO)
             add_event(epollfd, cli_sock, EPOLLOUT);
@@ -86,22 +89,21 @@ static void sendata(int epollfd, int fd, int cli_sock, char *buf){
             delete_event(epollfd, cli_sock, EPOLLIN);
             add_event(epollfd, STDOUT_FILENO, EPOLLOUT);
         }
-    }  
+    }
 }
 
 static void recdata(int epollfd, int fd, int cli_sock, char *buf){
-    char recline[1024];
     ssize_t rec_len;
-    if((rec_len = recv(cli_sock, buf, SIZE, 0)) == -1) {  
-       perror("receive error");  
-       exit(1);  
+    if((rec_len = recv(fd, buf, SIZE, 0)) == -1) {
+       perror("receive error");
+       exit(1);
     }else{
         if (fd == STDOUT_FILENO)
             delete_event(epollfd, fd, EPOLLOUT);
         else
             modify_event(epollfd, fd, EPOLLIN);
     }
-    memset(buf, 0, SIZE);  
+    memset(buf, 0, SIZE);
 }
 
 // static void readata(int epollfd, int fd, int cli_sock, char *buf){
